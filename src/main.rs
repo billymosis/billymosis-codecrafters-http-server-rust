@@ -1,7 +1,11 @@
 use std::{
     collections::HashMap,
+    env,
+    fs::read,
     io::{Read, Write},
     net::TcpListener,
+    path::PathBuf,
+    str::FromStr,
     thread,
 };
 
@@ -49,6 +53,19 @@ fn handle_client(mut stream: std::net::TcpStream) {
                         }
                         None => return,
                     }
+                }
+                "files" => {
+                    let args: Vec<String> = env::args().collect();
+                    let is_directory = &args[1] == "--directory";
+                    if is_directory {
+                        let file_name = paths[1];
+                        let mut file_path = PathBuf::from_str(&args[2]).expect("Invalid argument");
+                        file_path.push(file_name);
+                        let content = read(file_path).expect("No Content");
+                        let content_str = String::from_utf8(content).expect("Failed parsing utf8");
+                        stream.write(format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}", content_str.len(), content_str).as_bytes()).expect("error");
+                    }
+                    return;
                 }
                 _ => {
                     stream
