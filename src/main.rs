@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     env,
-    fs::read,
+    fs::{self, read},
     io::{Read, Write},
     net::TcpListener,
     path::PathBuf,
@@ -27,6 +27,7 @@ fn handle_client(mut stream: std::net::TcpStream) {
                     header_hash.insert(split[0], split[1]);
                 }
             }
+            let method = request_split[0];
             let request_path = request_split[1];
             if request_path == "/" {
                 stream.write(b"HTTP/1.1 200 OK\r\n\r\n").expect("error");
@@ -54,29 +55,62 @@ fn handle_client(mut stream: std::net::TcpStream) {
                         None => return,
                     }
                 }
-                "files" => {
-                    let args: Vec<String> = env::args().collect();
-                    let is_directory = &args[1] == "--directory";
-                    if is_directory {
-                        let file_name = paths[1];
-                        let mut file_path = PathBuf::from_str(&args[2]).expect("Invalid argument");
-                        file_path.push(file_name);
-                        let content = read(file_path);
-                        match content {
-                            Ok(content_str) => {
-                                let str =
-                                    String::from_utf8(content_str).expect("Failed parsing utf8");
-                                stream.write(format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}", str.len(), str).as_bytes()).expect("error");
-                            }
-                            Err(_) => {
-                                stream
-                                    .write(format!("HTTP/1.1 404 Not Found\r\n\r\n").as_bytes())
-                                    .expect("error");
+                "files" => match method {
+                    "GET" => {
+                        let args: Vec<String> = env::args().collect();
+                        let is_directory = &args[1] == "--directory";
+                        if is_directory {
+                            let file_name = paths[1];
+                            let mut file_path =
+                                PathBuf::from_str(&args[2]).expect("Invalid argument");
+                            file_path.push(file_name);
+                            let content = read(file_path);
+                            match content {
+                                Ok(content_str) => {
+                                    let str = String::from_utf8(content_str)
+                                        .expect("Failed parsing utf8");
+                                    stream.write(format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}", str.len(), str).as_bytes()).expect("error");
+                                }
+                                Err(_) => {
+                                    stream
+                                        .write(format!("HTTP/1.1 404 Not Found\r\n\r\n").as_bytes())
+                                        .expect("error");
+                                }
                             }
                         }
+                        return;
                     }
-                    return;
-                }
+                    "POST" => {
+                        let args: Vec<String> = env::args().collect();
+                        let is_directory = &args[1] == "--directory";
+                        if is_directory {
+                            let file_name = paths[1];
+                            let mut file_path =
+                                PathBuf::from_str(&args[2]).expect("Invalid argument");
+                            file_path.push(file_name);
+                            let body = msgs.last().expect("No body");
+                            let result = fs::write(file_path, body);
+                            match result {
+                                Ok(_) => {
+                                    stream
+                                        .write(format!("HTTP/1.1 201 Created\r\n\r\n").as_bytes())
+                                        .expect("error");
+                                }
+                                Err(_) => {
+                                    stream
+                                        .write(b"HTTP/1.1 404 Not Found\r\n\r\n")
+                                        .expect("error");
+                                }
+                            }
+                        }
+                        return;
+                    }
+                    _ => {
+                        stream
+                            .write(b"HTTP/1.1 404 Not Found\r\n\r\n")
+                            .expect("error");
+                    }
+                },
                 _ => {
                     stream
                         .write(b"HTTP/1.1 404 Not Found\r\n\r\n")
