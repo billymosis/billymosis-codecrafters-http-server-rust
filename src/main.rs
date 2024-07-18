@@ -29,20 +29,24 @@ fn handle_client(mut stream: std::net::TcpStream) {
             }
             let method = request_split[0];
             let request_path = request_split[1];
-            if request_path == "/" {
-                stream.write(b"HTTP/1.1 200 OK\r\n\r\n").expect("error");
-                return;
-            }
             let paths: Vec<&str> = request_path
                 .split("/")
                 .collect::<Vec<&str>>()
                 .into_iter()
                 .filter(|v| *v != "")
                 .collect();
-            let main_path = paths[0];
+            let main_path = paths.get(0).unwrap_or(&"/").to_owned();
             match main_path {
+                "/" => {
+                    stream.write(b"HTTP/1.1 200 OK\r\n\r\n").expect("error");
+                    return;
+                }
                 "echo" => {
                     let value = paths[1];
+                    if header_hash.get("Accept-Encoding").unwrap_or(&"") == &"gzip" {
+                        stream.write(format!("HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}\r\n\r\n", value.len(), value).as_bytes()).expect("error");
+                        return;
+                    }
                     stream.write(format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}\r\n\r\n", value.len(), value).as_bytes()).expect("error");
                     return;
                 }
