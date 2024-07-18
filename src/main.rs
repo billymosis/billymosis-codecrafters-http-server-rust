@@ -29,7 +29,7 @@ fn main() {
                             .collect();
                         if paths[0] == "echo" {
                             let value = paths[1];
-                            _stream.write(format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 3\r\n\r\n{}\r\n\r\n", value).as_bytes()).expect("error");
+                            _stream.write(format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}\r\n\r\n", value.len(), value).as_bytes()).expect("error");
                             println!("{:?}", paths);
                             continue;
                         }
