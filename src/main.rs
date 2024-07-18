@@ -43,7 +43,11 @@ fn handle_client(mut stream: std::net::TcpStream) {
                 }
                 "echo" => {
                     let value = paths[1];
-                    if header_hash.get("Accept-Encoding").unwrap_or(&"") == &"gzip" {
+                    if header_hash
+                        .get("Accept-Encoding")
+                        .unwrap_or(&"")
+                        .contains("gzip")
+                    {
                         stream.write(format!("HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}\r\n\r\n", value.len(), value).as_bytes()).expect("error");
                         return;
                     }
