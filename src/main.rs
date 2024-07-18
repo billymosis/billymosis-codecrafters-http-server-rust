@@ -2,14 +2,14 @@ use std::{
     collections::HashMap,
     env,
     fs::{self, read},
-    io::{Read, Write},
+    io::{BufReader, Read, Write},
     net::TcpListener,
     path::PathBuf,
     str::FromStr,
     thread,
 };
 
-use flate2::{write::ZlibEncoder, Compression};
+use flate2::{bufread::GzEncoder, write::ZlibEncoder, Compression};
 
 fn handle_client(mut stream: std::net::TcpStream) {
     println!("accepted new connection");
@@ -50,10 +50,12 @@ fn handle_client(mut stream: std::net::TcpStream) {
                         .unwrap_or(&"")
                         .contains("gzip")
                     {
-                        let mut e = ZlibEncoder::new(Vec::new(), Compression::default());
-                        let _ = e.write_all(value.as_bytes());
-                        let compressed_bytes = e.finish().unwrap();
-                        let len = compressed_bytes.len();
+                        println!("{}", value);
+                        let br = BufReader::new(value.as_bytes());
+                        let mut gz = GzEncoder::new(br, Compression::fast());
+                        let mut buffer = Vec::new();
+                        gz.read_to_end(&mut buffer).expect("read error");
+                        let len = buffer.len();
                         let b = b"HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Type: text/plain\r\n";
                         let c = format!("Content-Length: {}\r\n\r\n", len)
                             .as_bytes()
@@ -61,7 +63,7 @@ fn handle_client(mut stream: std::net::TcpStream) {
                         let mut res = Vec::new();
                         res.extend_from_slice(b);
                         res.extend_from_slice(&c);
-                        res.extend_from_slice(&compressed_bytes);
+                        res.extend_from_slice(&buffer);
                         stream.write(&res).expect("error");
                         return;
                     }
