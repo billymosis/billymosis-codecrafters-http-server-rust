@@ -61,9 +61,19 @@ fn handle_client(mut stream: std::net::TcpStream) {
                         let file_name = paths[1];
                         let mut file_path = PathBuf::from_str(&args[2]).expect("Invalid argument");
                         file_path.push(file_name);
-                        let content = read(file_path).expect("No Content");
-                        let content_str = String::from_utf8(content).expect("Failed parsing utf8");
-                        stream.write(format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}", content_str.len(), content_str).as_bytes()).expect("error");
+                        let content = read(file_path);
+                        match content {
+                            Ok(content_str) => {
+                                let str =
+                                    String::from_utf8(content_str).expect("Failed parsing utf8");
+                                stream.write(format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}", str.len(), str).as_bytes()).expect("error");
+                            }
+                            Err(_) => {
+                                stream
+                                    .write(format!("HTTP/1.1 404 Not Found\r\n\r\n").as_bytes())
+                                    .expect("error");
+                            }
+                        }
                     }
                     return;
                 }
